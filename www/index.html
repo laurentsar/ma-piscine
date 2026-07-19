@@ -113,6 +113,7 @@
   <div class="row-btns">
     <button id="btnScan" class="primary">📷 Scanner un code-barres</button>
     <button id="btnAddManual" class="ghost">＋ Ajouter à la main</button>
+    <button id="btnQuickStock" class="ghost">⚡ Mes produits habituels</button>
   </div>
 
   <div id="scanner" class="hidden">
@@ -244,7 +245,14 @@
       <label class="ghost file-btn">⬆︎ Importer<input type="file" id="fileImport" accept="application/json" hidden /></label>
       <button id="btnWipe" class="ghost danger">🗑 Tout effacer</button>
     </div>
-    <p class="muted small">Tout est stocké sur le téléphone. Aucune donnée n'est envoyée ailleurs que vers ton Home Assistant, si tu l'as configuré.</p>
+    <p class="muted small">Tout est stocké sur le téléphone — et <strong>une désinstallation efface tout</strong>. C'est pour ça que l'app se sauvegarde aussi dans Home Assistant.</p>
+
+    <label class="chk"><input type="checkbox" id="setBackup" /> <span>Sauvegarde automatique vers Home Assistant</span></label>
+    <div class="row-btns">
+      <button id="btnBackupNow" class="ghost">☁︎ Sauvegarder maintenant</button>
+      <button id="btnRestore" class="ghost">⟲ Restaurer</button>
+    </div>
+    <p id="backupMsg" class="muted small"></p>
   </div>
 
   <h2>À propos</h2>

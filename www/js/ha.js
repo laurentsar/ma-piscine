@@ -242,10 +242,54 @@
     });
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Sauvegarde                                                         */
+  /* ------------------------------------------------------------------ */
+  /*
+   * Le stockage du téléphone disparaît à la moindre désinstallation, et
+   * l'APK se réinstalle à chaque version. Home Assistant, lui, est déjà
+   * sauvegardé vers le NAS : on y dépose l'état sous forme d'attribut.
+   *
+   * L'état d'un capteur est limité à 255 caractères, pas ses attributs :
+   * c'est donc l'attribut `data` qui porte le JSON. Les photos restent sur
+   * le téléphone (trop lourdes), et l'historique est tronqué aux 100
+   * derniers tests pour ne pas gonfler indéfiniment la base HA.
+   */
+  var BACKUP_ENT = 'sensor.piscine_sauvegarde';
+
+  function backupPayload(state) {
+    var s = JSON.parse(JSON.stringify(state));
+    (s.tests || []).forEach(function (t) { delete t.photoId; });
+    s.tests = (s.tests || []).slice(-100);
+    return s;
+  }
+
+  function backup(state) {
+    if (!enabled()) return Promise.reject(new Error('Home Assistant non configuré'));
+    var data = JSON.stringify(backupPayload(state));
+    return setState(BACKUP_ENT, new Date().toISOString().slice(0, 19).replace('T', ' '), {
+      friendly_name: 'Piscine sauvegarde', icon: 'mdi:cloud-upload-outline',
+      taille_ko: Math.round(data.length / 102.4) / 10,
+      produits: (state.stock || []).length,
+      tests: (state.tests || []).length,
+      data: data,
+    }).then(function () { return { size: data.length }; });
+  }
+
+  function restore() {
+    if (!enabled()) return Promise.reject(new Error('Home Assistant non configuré'));
+    return getState(BACKUP_ENT).then(function (st) {
+      var raw = st && st.attributes && st.attributes.data;
+      if (!raw) throw new Error('Aucune sauvegarde trouvée');
+      return { state: JSON.parse(raw), date: st.state };
+    });
+  }
+
   global.HA = {
     cfg: cfg, saveCfg: saveCfg, enabled: enabled, ping: ping,
     states: states, getState: getState, setState: setState,
     temperatureSensors: temperatureSensors, pumpEntities: pumpEntities,
     publish: publish, lsi: lsi, PREFIX: PREFIX,
+    backup: backup, restore: restore, BACKUP_ENT: BACKUP_ENT,
   };
 })(window);

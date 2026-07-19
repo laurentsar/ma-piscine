@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.4.2';
+  var APP_VERSION = '1.5.0';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -22,10 +22,10 @@
       haAuto: true,
       haTempEnt: 'input_number.piscine_temperature',
       haPumpEnt: 'switch.prise_piscine_commutateur_2',
-      flow: 15, surface: 27.6, filter: 'aqualoon',
+      flow: 15, surface: 27.6, filter: 'aqualoon', backup: true,
       pumpW: 1140, kwhPrice: 0.15,
     },
-    tests: [], stock: [], barcodes: {}, treatments: [], calib: {},
+    tests: [], stock: [], barcodes: {}, treatments: [], calib: {}, lastBackup: null,
     fill: null, dilutionNotice: null,
   };
 
@@ -43,7 +43,10 @@
     });
     return out;
   }
-  function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(S));
+    scheduleBackup();
+  }
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -1201,6 +1204,99 @@
     return 'https://duckduckgo.com/?q=' + encodeURIComponent(q.trim());
   }
 
+  /* ================================================================== */
+  /* Sauvegarde vers Home Assistant                                     */
+  /* ================================================================== */
+
+  var backupTimer = null;
+
+  /* Déclenché après chaque modification, mais temporisé : on ne va pas
+     écrire dans HA à chaque frappe au clavier. */
+  function scheduleBackup() {
+    if (!S.settings.backup || !HA.enabled()) return;
+    clearTimeout(backupTimer);
+    backupTimer = setTimeout(function () {
+      HA.backup(S).then(function () {
+        S.lastBackup = new Date().toISOString();
+        localStorage.setItem(KEY, JSON.stringify(S));
+      }, function () { /* hors réseau : la prochaine modification réessaiera */ });
+    }, 4000);
+  }
+
+  function backupNow() {
+    var msg = $('backupMsg');
+    if (!HA.enabled()) { msg.textContent = 'Configure d\'abord Home Assistant ci-dessus.'; return; }
+    msg.textContent = 'Sauvegarde…';
+    HA.backup(S).then(function (r) {
+      S.lastBackup = new Date().toISOString();
+      save();
+      msg.textContent = 'Sauvegardé dans ' + HA.BACKUP_ENT + ' (' +
+        Math.round(r.size / 102.4) / 10 + ' ko) le ' + fmtDate(S.lastBackup) + '.';
+    }, function (e) { msg.textContent = 'Échec : ' + e.message; });
+  }
+
+  function restoreFromHa() {
+    var msg = $('backupMsg');
+    if (!HA.enabled()) { msg.textContent = 'Configure d\'abord Home Assistant ci-dessus.'; return; }
+    msg.textContent = 'Lecture de la sauvegarde…';
+    HA.restore().then(function (r) {
+      var n = (r.state.stock || []).length, t = (r.state.tests || []).length;
+      modal('Restaurer la sauvegarde ?', function (b) {
+        b.appendChild(el('p', null, 'Sauvegarde du ' + esc(r.date) + ' : ' +
+          n + ' produit' + (n > 1 ? 's' : '') + ', ' + t + ' test' + (t > 1 ? 's' : '') + '.'));
+        b.appendChild(el('p', 'muted small', 'L\'état actuel du téléphone sera remplacé. ' +
+          'Les photos, elles, ne sont pas dans la sauvegarde.'));
+      }, function () { return true; }).then(function (ok) {
+        if (!ok) { msg.textContent = ''; return; }
+        S = r.state;
+        save();
+        renderSettings(); renderHome(); renderStock(); renderHist();
+        msg.textContent = 'Restauré depuis la sauvegarde du ' + r.date + '.';
+        toast('Sauvegarde restaurée');
+      });
+    }, function (e) { msg.textContent = 'Échec : ' + e.message; });
+  }
+
+  /* ================================================================== */
+  /* Remise en route rapide du stock                                    */
+  /* ================================================================== */
+  /*
+   * Après une réinstallation, ressaisir le stock à la main est fastidieux.
+   * Ces entrées correspondent aux produits effectivement utilisés ici ;
+   * les quantités restent à ajuster, mais le type et le dosage sont bons.
+   */
+  var QUICK_STOCK = [
+    { name: 'hth pH Moins 5 kg',        productId: 'hth_ph_moins',   qty: 5000, unit: 'g',     low: 800 },
+    { name: 'hth TAC Plus 5 kg',        productId: 'hth_tac_plus',   qty: 5000, unit: 'g',     low: 800 },
+    { name: 'Galets 5en1 200 g (5 kg)', productId: 'hofer_multi_200', qty: 25,  unit: 'galet', low: 4 },
+  ];
+
+  function addQuickStock() {
+    modal('Ajouter tes produits habituels ?', function (b) {
+      var ul = el('ul', 'quick-list');
+      QUICK_STOCK.forEach(function (q) {
+        ul.appendChild(el('li', null, esc(q.name) + ' — ' +
+          esc(Chem.fmtQty(q.qty, q.unit))));
+      });
+      b.appendChild(ul);
+      b.appendChild(el('p', 'muted small',
+        'Les quantités sont celles d\'un contenant neuf : ajuste-les ensuite. ' +
+        'Les produits déjà présents ne seront pas ajoutés en double.'));
+    }, function () { return true; }).then(function (ok) {
+      if (!ok) return;
+      var added = 0;
+      QUICK_STOCK.forEach(function (q) {
+        var dup = S.stock.filter(function (s) { return s.productId === q.productId; })[0];
+        if (dup) return;
+        S.stock.push({ id: uid(), name: q.name, productId: q.productId, qty: q.qty,
+                       unit: q.unit, low: q.low, strength: null, barcode: null });
+        added++;
+      });
+      save(); renderStock(); renderHome();
+      toast(added ? added + ' produit' + (added > 1 ? 's ajoutés' : ' ajouté') : 'Déjà tous en stock');
+    });
+  }
+
   /* Formulaire produit, partagé par l'ajout et l'édition. */
   function editStock(existing, barcode) {
     var s = existing || { id: uid(), name: '', productId: 'chlore_choc', qty: 0, unit: 'g', low: null, barcode: barcode || null };
@@ -1743,6 +1839,10 @@
     $('haUrl').value = (HA.cfg().url || '');
     $('haToken').value = (HA.cfg().token || '');
     $('haAuto').checked = !!s.haAuto;
+    $('setBackup').checked = !!s.backup;
+    $('backupMsg').textContent = S.lastBackup
+      ? 'Dernière sauvegarde : ' + fmtDate(S.lastBackup) + '.'
+      : 'Aucune sauvegarde encore envoyée.';
     $('aboutVer').textContent = 'Version ' + APP_VERSION;
     $('geoMsg').textContent = s.lat != null ? 'Position enregistrée (' + round(s.lat, 2) + ', ' + round(s.lon, 2) + ')' : '';
     renderCalib();
@@ -1828,6 +1928,10 @@
     };
     $('haPush').onclick = function () { saveHa(); pushHA(false); };
 
+    $('btnQuickStock').onclick = addQuickStock;
+    $('setBackup').onchange = function () { S.settings.backup = this.checked; save(); };
+    $('btnBackupNow').onclick = backupNow;
+    $('btnRestore').onclick = restoreFromHa;
     $('btnExport').onclick = exportData;
     $('fileImport').onchange = function () { if (this.files[0]) importData(this.files[0]); };
     $('btnWipe').onclick = function () {
@@ -1970,6 +2074,27 @@
     showTab('home');
     setHaDot(HA.enabled() ? '' : null);
     if (HA.enabled()) HA.ping().then(function () { setHaDot('ok'); }, function () { setHaDot('err'); });
+
+    /* Un état posé par l'API REST ne survit pas à un redémarrage de Home
+       Assistant : il n'est pas rattaché à une intégration. On repousse donc
+       la sauvegarde à chaque ouverture, pas seulement à chaque modification,
+       pour que l'entité se recrée d'elle-même après un redémarrage. */
+    if (HA.enabled() && S.settings.backup && (S.stock.length || S.tests.length)) {
+      HA.backup(S).then(function () {
+        S.lastBackup = new Date().toISOString();
+        localStorage.setItem(KEY, JSON.stringify(S));
+      }, function () {});
+    }
+
+    /* App vide alors qu'une sauvegarde existe : c'est une réinstallation.
+       On propose la restauration sans attendre que l'utilisateur y pense. */
+    if (HA.enabled() && !S.stock.length && !S.tests.length) {
+      HA.restore().then(function (r) {
+        if (!(r.state.stock || []).length && !(r.state.tests || []).length) return;
+        showTab('set');
+        restoreFromHa();
+      }, function () { /* pas de sauvegarde : premier lancement, rien à dire */ });
+    }
     loadWeather().then(function (w) { if (w) renderProactive(); });
     if (S.settings.notif) scheduleReminders();
     if (S.fill && !S.fill.paused) scheduleFillNotif();

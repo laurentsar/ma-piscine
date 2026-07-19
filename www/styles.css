@@ -227,3 +227,7 @@ button.ghost.wide{width:100%}
 
 /* Alerte d'incompatibilité produit / média filtrant. */
 .warn-card{border-left:3px solid var(--warn);background:rgba(240,180,60,.07)}
+
+/* Liste de la remise en route rapide du stock. */
+.quick-list{margin:6px 0 0 18px;padding:0}
+.quick-list li{margin:3px 0}

@@ -1,4 +1,4 @@
 {
-  "version": "1.4.2",
-  "notes": "Icone du lanceur Android corrigee : l APK affichait le logo Capacitor par defaut au lieu de la goutte d eau."
+  "version": "1.5.0",
+  "notes": "Sauvegarde automatique vers Home Assistant et restauration proposee apres une reinstallation. Bouton Mes produits habituels pour remonter le stock en un geste."
 }
