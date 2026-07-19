@@ -1,4 +1,4 @@
 {
-  "version": "1.0.0",
-  "notes": "Première version — lecture photo des bandelettes, saisie manuelle, dosages selon le stock, scan de codes-barres, alertes proactives et publication vers Home Assistant."
+  "version": "1.1.0",
+  "notes": "Bassin pre-configure (6,82 x 4,05 x 1,40 m = 38,7 m3), entites Home Assistant pre-selectionnees (temperature et prise piscine), cout electrique de la filtration conseillee."
 }

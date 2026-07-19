@@ -67,7 +67,9 @@
     return states().then(function (all) {
       return all.filter(function (s) {
         var a = s.attributes || {};
-        return s.entity_id.indexOf('sensor.') === 0 &&
+        /* input_number accepté : une sonde qui décroche laisse souvent la valeur
+           utile dans un input_number entretenu par une automatisation. */
+        return /^(sensor|input_number)\./.test(s.entity_id) &&
                (a.device_class === 'temperature' || /temp/i.test(s.entity_id)) &&
                !isNaN(parseFloat(s.state));
       }).map(function (s) {

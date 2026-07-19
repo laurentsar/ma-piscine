@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.0.0';
+  var APP_VERSION = '1.1.0';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -16,10 +16,14 @@
   var KEY = 'piscine.state';
   var DEFAULTS = {
     settings: {
-      mode: 'chlore', volume: 40, freq: 'auto',
+      /* Bassin 6,82 × 4,05 × 1,40 m — volume et surface mesurés, pas des valeurs d'exemple. */
+      mode: 'chlore', volume: 38.7, freq: 'auto',
       notif: false, notifHour: '09:00', weather: false, lat: null, lon: null,
-      haAuto: true, haTempEnt: '', haPumpEnt: '',
-      flow: 15, surface: null,
+      haAuto: true,
+      haTempEnt: 'input_number.piscine_temperature',
+      haPumpEnt: 'switch.prise_piscine_commutateur_2',
+      flow: 15, surface: 27.6,
+      pumpW: 1140, kwhPrice: 0.2016,
     },
     tests: [], stock: [], barcodes: {}, treatments: [], calib: {},
     fill: null, dilutionNotice: null,
@@ -213,7 +217,12 @@
       extra.push('<strong>Équilibre :</strong> ' + li + ' — ' + interp);
     }
     var fh = Chem.filtrationHours(t.readings.temp);
-    if (fh != null) extra.push('<strong>Filtration conseillée :</strong> ' + fh + ' h/jour');
+    if (fh != null) {
+      var line = '<strong>Filtration conseillée :</strong> ' + fh + ' h/jour';
+      var cost = filtrationCost(fh);
+      if (cost) line += ' <span class="muted">— ' + cost + '</span>';
+      extra.push(line);
+    }
     if (extra.length) host.appendChild(el('div', 'card info-card small', extra.join('<br>')));
 
     $('lastTestInfo').textContent = 'Dernier test : ' + fmtDate(t.date) +
@@ -222,6 +231,16 @@
     renderActions();
     renderFill();
     renderProactive();
+  }
+
+  /* Coût électrique de la filtration conseillée : la durée vient de la
+     température, la puissance de la pompe et le prix du kWh des réglages. */
+  function filtrationCost(hours) {
+    var w = S.settings.pumpW || 0, p = S.settings.kwhPrice || 0;
+    if (!hours || !w || !p) return null;
+    var day = hours * w / 1000 * p;
+    return day.toFixed(2).replace('.', ',') + ' € / jour · ' +
+           (day * 30).toFixed(0) + ' € / mois';
   }
 
   function renderActions() {
@@ -1540,6 +1559,8 @@
     });
     $('setVolume').value = s.volume;
     $('setFreq').value = s.freq;
+    $('setPumpW').value = s.pumpW || '';
+    $('setKwhPrice').value = s.kwhPrice || '';
     $('setNotif').checked = !!s.notif;
     $('setWeather').checked = !!s.weather;
     $('setNotifHour').value = s.notifHour;
@@ -1556,6 +1577,16 @@
     $('setMode').onchange = function () { S.settings.mode = this.value; save(); renderManualFields(); renderHome(); renderCalib(); };
     $('setVolume').oninput = function () { S.settings.volume = parseFloat(this.value) || 0; save(); };
     $('setFreq').onchange = function () { S.settings.freq = this.value; save(); scheduleReminders(); renderHome(); };
+    $('setPumpW').oninput = function () { S.settings.pumpW = parseFloat(this.value) || 0; save(); renderHome(); };
+    $('setKwhPrice').oninput = function () { S.settings.kwhPrice = parseFloat(this.value) || 0; save(); renderHome(); };
+    $('pumpFromHA').onclick = function () {
+      HA.getState('input_number.piscine_puissance_w').then(function (st) {
+        var w = st && parseFloat(st.state);
+        if (!w) return toast('Puissance introuvable dans Home Assistant');
+        S.settings.pumpW = w; save(); renderSettings(); renderHome();
+        toast('Puissance pompe : ' + w + ' W');
+      });
+    };
     $('setNotifHour').onchange = function () { S.settings.notifHour = this.value; save(); scheduleReminders(); };
     $('setWeather').onchange = function () {
       S.settings.weather = this.checked; save();

@@ -171,6 +171,15 @@
       </label>
       <button id="vcApply" class="ghost">Appliquer</button>
     </div>
+    <label class="fld"><span>Puissance de la pompe (W)</span>
+      <span class="fld-row">
+        <input type="number" id="setPumpW" step="10" inputmode="numeric" placeholder="1140" />
+        <button id="pumpFromHA" class="ghost small-btn">🏠 depuis HA</button>
+      </span>
+    </label>
+    <label class="fld"><span>Prix du kWh (€)</span>
+      <input type="number" id="setKwhPrice" step="0.0001" inputmode="decimal" placeholder="0.2016" />
+    </label>
     <label class="fld"><span>Fréquence des tests</span>
       <select id="setFreq">
         <option value="2">Tous les 2 jours</option>
