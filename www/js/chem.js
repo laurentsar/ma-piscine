@@ -36,6 +36,30 @@
     oxygene:{ ph: [7.0, 7.3, 7.6], oa: [5, 8, 10],   tac: [80, 100, 140], th: [150, 250, 350] },
   };
 
+  /* Médias filtrants. `noFloc` : le floculant y est proscrit — il agglomère
+     les impuretés et colle les fibres entre elles, colmatage irréversible. */
+  var FILTERS = [
+    { id: 'sable',     label: 'Sable',                    microns: 40 },
+    { id: 'verre',     label: 'Verre filtrant',           microns: 15 },
+    { id: 'aqualoon',  label: 'Balles filtrantes (Aqualoon, coton…)', microns: 3, noFloc: true },
+    { id: 'cartouche', label: 'Cartouche',                microns: 15, noFloc: true },
+    { id: 'diatomee',  label: 'Diatomées',                microns: 3,  noFloc: true },
+  ];
+
+  function filter(id) {
+    return FILTERS.filter(function (f) { return f.id === id; })[0] || FILTERS[0];
+  }
+
+  /* Produits que le média filtrant ne supporte pas, d'après le stock réel. */
+  function filterConflicts(filterId, stock) {
+    var f = filter(filterId);
+    if (!f.noFloc) return [];
+    return (stock || []).map(function (s) {
+      var p = product(s.productId);
+      return p && p.floc ? { item: s, product: p, filter: f } : null;
+    }).filter(Boolean);
+  }
+
   var MODES = [
     { id: 'chlore',  label: 'Chlore',            params: ['ph', 'cl', 'tac', 'th', 'cya'] },
     { id: 'sel',     label: 'Sel / électrolyse', params: ['ph', 'cl', 'tac', 'th', 'cya', 'sel'] },
@@ -97,6 +121,7 @@
       refStrength: 10, strengthLabel: '% d\'ammonium quaternaire',
       note: 'Préventif ≈ 5 mL/m³ tous les 15 j ; curatif : double dose + choc.' },
     { id: 'floculant',      label: 'Floculant / clarifiant',   role: 'floc',unit: 'mL', dose: 3,    effect: 1,   modes: ['*'],
+      floc: true,
       note: 'Filtration en continu 24-48 h puis contre-lavage. Pas avec une cartouche.' },
     { id: 'detartrant',     label: 'Détartrant cellule',       role: 'main',unit: 'mL', dose: 0,    effect: 0,   modes: ['sel'],
       note: 'Nettoyage des plaques d\'électrolyseur entourées de calcaire.' },
@@ -115,7 +140,7 @@
             'Corriger le TAC AVANT le pH.' },
 
     { id: 'hofer_multi_200', label: 'Höfer/Bayzid galet multifonction 5en1 (200 g)', role: 'cl', unit: 'galet',
-      dose: 0.033, effect: 1, modes: ['chlore'], slow: true,
+      dose: 0.033, effect: 1, modes: ['chlore'], slow: true, floc: true,
       note: 'Acide trichlorisocyanurique, min. 90 % de chlore actif. ' +
             'Notice : 1 galet / 30 m³ tous les 5 à 8 jours, en skimmer ou diffuseur flottant. ' +
             'Contient déjà stabilisant, anti-algues, floculant et anti-calcaire — inutile d\'en rajouter. ' +
@@ -396,6 +421,7 @@
   global.Chem = {
     PARAMS: PARAMS, TARGETS: TARGETS, MODES: MODES, PRODUCTS: PRODUCTS,
     product: product, productsForRole: productsForRole,
+    FILTERS: FILTERS, filter: filter, filterConflicts: filterConflicts,
     targetFor: targetFor, status: status, recommend: recommend,
     filtrationHours: filtrationHours, fmtQty: fmtQty, roundQty: roundQty,
   };

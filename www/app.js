@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.3.0';
+  var APP_VERSION = '1.4.0';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -22,7 +22,7 @@
       haAuto: true,
       haTempEnt: 'input_number.piscine_temperature',
       haPumpEnt: 'switch.prise_piscine_commutateur_2',
-      flow: 15, surface: 27.6,
+      flow: 15, surface: 27.6, filter: 'aqualoon',
       pumpW: 1140, kwhPrice: 0.15,
     },
     tests: [], stock: [], barcodes: {}, treatments: [], calib: {},
@@ -243,9 +243,26 @@
            (day * 30).toFixed(0) + ' € / mois';
   }
 
+  /* Incompatibilité produit / média filtrant : ça n'a rien à voir avec une
+     analyse d'eau, donc ça ne passe pas par le moteur de dosage, mais il faut
+     le voir — un colmatage de balles filtrantes est irréversible. */
+  function renderFilterWarning(host) {
+    var conflicts = Chem.filterConflicts(S.settings.filter, S.stock);
+    if (!conflicts.length) return;
+    var f = conflicts[0].filter;
+    var names = conflicts.map(function (c) { return c.item.name; }).join(', ');
+    host.appendChild(el('div', 'card warn-card',
+      '⚠️ <strong>Floculant et ' + esc(f.label.split(' (')[0].toLowerCase()) + ' ne vont pas ensemble.</strong><br>' +
+      '<span class="small">' + esc(names) + ' libère du floculant à chaque usage. ' +
+      'Il agglomère les impuretés et colle les fibres entre elles : le colmatage est irréversible. ' +
+      'Surveille la pression du filtre, lave le média à 30 °C en filet dès qu\'elle grimpe, ' +
+      'et passe à un chlore lent simple (sans « multifonction ») quand ce lot sera fini.</span>'));
+  }
+
   function renderActions() {
     var host = $('actions');
     host.innerHTML = '';
+    renderFilterWarning(host);
     var acts = currentActions();
     if (!acts.length) {
       host.appendChild(el('div', 'card ok-card', '✅ <strong>Rien à corriger.</strong><br>' +
@@ -1710,6 +1727,14 @@
     });
     $('setVolume').value = s.volume;
     $('setFreq').value = s.freq;
+    var fsel = $('setFilter');
+    fsel.innerHTML = '';
+    Chem.FILTERS.forEach(function (f) {
+      var o = el('option', null, esc(f.label + ' — ' + f.microns + ' µm'));
+      o.value = f.id;
+      if (f.id === s.filter) o.selected = true;
+      fsel.appendChild(o);
+    });
     $('setPumpW').value = s.pumpW || '';
     $('setKwhPrice').value = s.kwhPrice || '';
     $('setNotif').checked = !!s.notif;
@@ -1728,6 +1753,7 @@
     $('setMode').onchange = function () { S.settings.mode = this.value; save(); renderManualFields(); renderHome(); renderCalib(); };
     $('setVolume').oninput = function () { S.settings.volume = parseFloat(this.value) || 0; save(); };
     $('setFreq').onchange = function () { S.settings.freq = this.value; save(); scheduleReminders(); renderHome(); };
+    $('setFilter').onchange = function () { S.settings.filter = this.value; save(); renderHome(); renderStock(); };
     $('setPumpW').oninput = function () { S.settings.pumpW = parseFloat(this.value) || 0; save(); renderHome(); };
     $('setKwhPrice').oninput = function () { S.settings.kwhPrice = parseFloat(this.value) || 0; save(); renderHome(); };
     $('pumpFromHA').onclick = function () {

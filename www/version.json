@@ -1,4 +1,4 @@
 {
-  "version": "1.3.0",
-  "notes": "Produits hth pH Moins, hth TAC Plus et galets Hofer 5en1 au catalogue avec le dosage de leur notice. Lecture du chlore total (bandelettes 6en1), photo de l emballage par produit, fractionnement des grosses doses, et plus de galets lents proposes pour une chloration choc."
+  "version": "1.4.0",
+  "notes": "Media filtrant en reglage (Aqualoon par defaut) et alerte quand un produit du stock libere du floculant, proscrit sur balles filtrantes, cartouche et diatomees."
 }

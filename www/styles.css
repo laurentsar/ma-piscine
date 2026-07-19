@@ -224,3 +224,6 @@ button.ghost.wide{width:100%}
 .stock-item.has-thumb>.muted,
 .stock-item.has-thumb>.row-btns{grid-column:2}
 .stock-item.has-thumb>.stock-thumb{grid-row:1/span 3}
+
+/* Alerte d'incompatibilité produit / média filtrant. */
+.warn-card{border-left:3px solid var(--warn);background:rgba(240,180,60,.07)}
