@@ -60,7 +60,7 @@
     { id: 'chlore_choc',    label: 'Chlore choc (granulés)',   role: 'cl',  unit: 'g',  dose: 1.5,  effect: 1,   modes: ['chlore', 'sel', 'oxygene'],
       refStrength: 65, strengthLabel: '% de chlore actif (hypochlorite de calcium)',
       note: 'Hypochlorite de calcium ~65 %. Filtration en marche, pH réglé avant.' },
-    { id: 'chlore_lent',    label: 'Chlore lent (galets 250 g)', role: 'cl', unit: 'galet', dose: 0.04, effect: 1, modes: ['chlore'],
+    { id: 'chlore_lent',    label: 'Chlore lent (galets 250 g)', role: 'cl', unit: 'galet', dose: 0.04, effect: 1, modes: ['chlore'], slow: true,
       refStrength: 90, strengthLabel: '% de chlore actif (trichlorisocyanurique)',
       note: '≈ 1 galet / 25 m³ / semaine, en skimmer ou diffuseur. Apporte du stabilisant.' },
     { id: 'chlore_liquide', label: 'Chlore liquide (javel piscine)', role: 'cl', unit: 'mL', dose: 10, effect: 1, modes: ['chlore', 'sel'],
@@ -100,6 +100,28 @@
       note: 'Filtration en continu 24-48 h puis contre-lavage. Pas avec une cartouche.' },
     { id: 'detartrant',     label: 'Détartrant cellule',       role: 'main',unit: 'mL', dose: 0,    effect: 0,   modes: ['sel'],
       note: 'Nettoyage des plaques d\'électrolyseur entourées de calcaire.' },
+
+    /* --- Produits identifiés, dosage repris de la notice du fabricant ---
+       Ces entrées portent leur propre `dose`, donc pas de refStrength : il n'y
+       a rien à corriger, le chiffre vient déjà de l'étiquette. */
+    { id: 'hth_ph_moins',   label: 'hth pH Moins (micro-billes)', role: 'ph-', unit: 'g', dose: 7.5, effect: 0.1, modes: ['*'],
+      note: 'Hydrogénosulfate de sodium. Notice hth : 150 g/10 m³ pour −0,2 pH. ' +
+            'Micro-billes à forte teneur : 25 % plus concentré que le pH moins générique. ' +
+            'Diluer dans un seau, verser devant les refoulements, filtration en marche.' },
+    { id: 'hth_tac_plus',   label: 'hth TAC Plus (Alkanal)',   role: 'tac+',unit: 'g',  dose: 17,   effect: 10,  modes: ['*'],
+      maxRate: 50,
+      note: 'Bicarbonate de sodium. Notice : 170 g/10 m³ pour +10 mg/L (+1 °f). ' +
+            'Ne jamais dépasser 50 g/m³ en une fois (eau trouble). Diluer à 70 g/L d\'eau max. ' +
+            'Corriger le TAC AVANT le pH.' },
+
+    { id: 'hofer_multi_200', label: 'Höfer/Bayzid galet multifonction 5en1 (200 g)', role: 'cl', unit: 'galet',
+      dose: 0.033, effect: 1, modes: ['chlore'], slow: true,
+      note: 'Acide trichlorisocyanurique, min. 90 % de chlore actif. ' +
+            'Notice : 1 galet / 30 m³ tous les 5 à 8 jours, en skimmer ou diffuseur flottant. ' +
+            'Contient déjà stabilisant, anti-algues, floculant et anti-calcaire — inutile d\'en rajouter. ' +
+            'Le stabilisant s\'accumule à chaque galet : surveiller le CYA, il ne part qu\'à la vidange. ' +
+            'Floculant intégré : à éviter sur filtre à cartouche.' },
+
     { id: 'autre',          label: 'Autre produit',            role: 'none',unit: 'g',  dose: 0,    effect: 0,   modes: ['*'],
       note: '' },
   ];
@@ -191,9 +213,19 @@
       });
     }
 
-    /* Choisit l'article de stock le plus adapté (le plus fourni) pour un rôle. */
-    function pick(role) {
+    /* Choisit l'article de stock le plus adapté (le plus fourni) pour un rôle.
+       `opt.shock` réclame un produit à action rapide : un galet lent met des
+       jours à se dissoudre, il ne fait pas une chloration choc. */
+    function pick(role, opt) {
       var items = stockFor(role);
+      if (opt && opt.shock) {
+        var fast = items.filter(function (s) {
+          var p = product(s.productId);
+          return p && p.slow !== true;
+        });
+        if (fast.length) items = fast;
+        else return null; /* rien de rapide en stock : on le dira franchement */
+      }
       if (!items.length) return null;
       items.sort(function (a, b) { return (b.qty || 0) - (a.qty || 0); });
       return items[0];
@@ -203,18 +235,31 @@
 
     function dosing(role, delta, opt) {
       opt = opt || {};
-      var item = pick(role);
-      var prod = item ? product(item.productId) : (productsForRole(role, mode)[0] || null);
+      var item = pick(role, opt);
+      var prod = item ? product(item.productId)
+                      : (productsForRole(role, mode).filter(function (p) {
+                          return !opt.shock || p.slow !== true;
+                        })[0] || null);
       if (!prod) return null;
       /* Concentration personnalisée : un produit 2× plus concentré = 2× moins de dose. */
       var factor = item && item.strength ? (prod.refStrength || 100) / item.strength : 1;
       var q = roundQty(qtyFor(prod, delta, vol) * factor, prod.unit);
       var have = item ? item.qty : 0;
+
+      /* Certaines notices plafonnent la quantité versée en une fois (au-delà,
+         l'eau se trouble ou le produit ne se dissout pas). On fractionne. */
+      var split = null;
+      if (prod.maxRate && vol > 0 && q > prod.maxRate * vol) {
+        var n = Math.ceil(q / (prod.maxRate * vol));
+        split = { times: n, each: roundQty(q / n, prod.unit), rate: prod.maxRate };
+      }
+
       return {
         product: prod, item: item, qty: q, unit: prod.unit,
         text: fmtQty(q, prod.unit) + ' de ' + (item ? item.name : prod.label),
         inStock: !!item, enough: item ? have >= q : false,
         missing: item && have < q ? roundQty(q - have, prod.unit) : 0,
+        split: split,
         note: prod.note,
       };
     }
@@ -274,7 +319,7 @@
     if (mode !== 'brome' && mode !== 'oxygene' && r.clt != null && r.cl != null) {
       var comb = Math.round((r.clt - r.cl) * 10) / 10;
       if (comb >= 0.6) {
-        var dc = dosing('cl', Math.max(5, comb * 10));
+        var dc = dosing('cl', Math.max(5, comb * 10), { shock: true });
         /* Si le chlore est déjà signalé bas, on ne fait pas deux ajouts : on
            garde la dose choc, qui englobe la remise à niveau. */
         if (disLowAction) {

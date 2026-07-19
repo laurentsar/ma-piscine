@@ -214,3 +214,13 @@ input[type=checkbox]{width:auto}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--aqua),var(--mint));
   transition:width .5s linear}
 button.ghost.wide{width:100%}
+
+/* Vignette produit : photo de l'emballage prise par l'utilisateur. */
+.stock-thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;
+  background:rgba(255,255,255,.06);flex:0 0 auto}
+.stock-item.has-thumb{display:grid;grid-template-columns:56px 1fr;
+  gap:10px;align-items:start}
+.stock-item.has-thumb .stock-head,
+.stock-item.has-thumb>.muted,
+.stock-item.has-thumb>.row-btns{grid-column:2}
+.stock-item.has-thumb>.stock-thumb{grid-row:1/span 3}

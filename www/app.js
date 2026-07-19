@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.2.0';
+  var APP_VERSION = '1.3.0';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -259,6 +259,12 @@
         '</span><h3>' + esc(a.title) + '</h3></div>';
       if (a.dose) {
         h += '<div class="dose">💧 ' + esc(a.dose.text) + '</div>';
+        if (a.dose.split) {
+          h += '<div class="warn-txt small">⚠️ À fractionner : ' + a.dose.split.times +
+               ' apports de ' + esc(Chem.fmtQty(a.dose.split.each, a.dose.unit)) +
+               ', espacés de quelques heures. Au-delà de ' + a.dose.split.rate +
+               ' g/m³ en une fois, l\'eau se trouble.</div>';
+        }
         if (!a.dose.inStock) {
           h += '<div class="warn-line">⚠️ Ce produit n\'est pas dans ton stock. ' +
                'Ajoute-le après achat en scannant son code-barres.</div>';
@@ -840,9 +846,14 @@
     var m = Chem.MODES.filter(function (x) { return x.id === S.settings.mode; })[0];
     return m ? m.params.slice() : ['ph', 'cl'];
   }
-  /* Paramètres lisibles sur une bandelette (le sel se mesure autrement). */
+  /* Paramètres lisibles sur une bandelette (le sel se mesure autrement).
+     Le chlore total ne sert à aucun dosage, mais les bandelettes 6-en-1 le
+     portent : lu, il donne le chlore combiné (total − libre), qui est ce qui
+     pique les yeux et sent fort. */
   function stripParams() {
-    return modeParams().filter(function (p) { return Strip.SCALES[p]; });
+    var ps = modeParams().filter(function (p) { return Strip.SCALES[p]; });
+    if (/^(chlore|sel)$/.test(S.settings.mode) && ps.indexOf('clt') < 0) ps.push('clt');
+    return ps;
   }
 
   function renderTestTab() {
@@ -1077,8 +1088,17 @@
         '<div class="stock-head"><h3>' + esc(s.name) + '</h3>' +
         '<span class="qty">' + esc(Chem.fmtQty(s.qty, s.unit)) + '</span></div>' +
         '<div class="muted small">' + esc(p ? p.label : 'Produit') +
+        (s.strength ? ' · ' + s.strength + ' %' : '') +
         (s.barcode ? ' · code ' + esc(s.barcode) : '') +
         (low ? ' · <strong class="warn-txt">stock bas</strong>' : '') + '</div>';
+
+      if (s.photoId) {
+        var th = el('img', 'stock-thumb');
+        th.alt = '';
+        getPhoto(s.photoId).then(function (d) { if (d) th.src = d; });
+        card.insertBefore(th, card.firstChild);
+        card.classList.add('has-thumb');
+      }
       var row = el('div', 'row-btns');
       [['−', -1], ['＋', 1]].forEach(function (b) {
         var btn = el('button', 'ghost small-btn', b[0]);
@@ -1230,6 +1250,33 @@
       refs.strength.value = s.strength != null ? s.strength : '';
       fc.appendChild(refs.strength); body.appendChild(fc);
 
+      /* Photo de l'emballage : bien plus fiable qu'un nom pour retrouver la
+         concentration ou le dosage six mois plus tard, et ça évite d'aller
+         chercher une image de catalogue sur internet. */
+      var fp = el('label', 'fld', '<span>Photo de l\'emballage</span>');
+      var pRow = el('span', 'fld-row');
+      var pPrev = el('img', 'stock-thumb');
+      pPrev.alt = '';
+      if (!s.photoId) pPrev.classList.add('hidden');
+      else getPhoto(s.photoId).then(function (d) { if (d) pPrev.src = d; });
+      var pBtn = el('label', 'ghost small-btn file-btn', '📷');
+      pBtn.title = 'Photographier l\'étiquette';
+      var pIn = el('input'); pIn.type = 'file'; pIn.accept = 'image/*';
+      pIn.capture = 'environment'; pIn.hidden = true;
+      pIn.onchange = function () {
+        var f = this.files && this.files[0];
+        if (!f) return;
+        Strip.loadToCanvas(f, 480, function (err, cv) {
+          if (err) { toast('Image illisible'); return; }
+          refs.photoData = cv.toDataURL('image/jpeg', 0.7);
+          pPrev.src = refs.photoData;
+          pPrev.classList.remove('hidden');
+        });
+      };
+      pBtn.appendChild(pIn);
+      pRow.appendChild(pPrev); pRow.appendChild(pBtn);
+      fp.appendChild(pRow); body.appendChild(fp);
+
       var f4 = el('label', 'fld', '<span>Alerte quand il reste moins de</span>');
       refs.low = el('input'); refs.low.type = 'number'; refs.low.step = '1'; refs.low.inputMode = 'decimal';
       refs.low.value = s.low != null ? s.low : '';
@@ -1265,6 +1312,10 @@
     }).then(function (res) {
       if (!res) return null;
       if (!existing) S.stock.push(res);
+      if (refs.photoData) {
+        res.photoId = res.photoId || ('st_' + res.id);
+        putPhoto(res.photoId, refs.photoData);
+      }
       if (res.barcode) {
         /* Mémorisation : ce code-barres désignera ce produit la prochaine fois. */
         S.barcodes[res.barcode] = { name: res.name, productId: res.productId, unit: res.unit, low: res.low, strength: res.strength };
