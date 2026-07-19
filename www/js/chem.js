@@ -49,32 +49,52 @@
 
   /* dose : quantité de produit (unit) par m³ d'eau pour 1 « pas » d'effet.
      effect : ce qu'un pas fait bouger (dans l'unité du paramètre). */
+  /*
+   * refStrength = teneur en matière active (%) à laquelle correspond `dose`.
+   * Si le bidon réel titre autrement, la dose est corrigée proportionnellement
+   * (voir `dosing()`). C'est la principale source d'erreur du dosage : deux
+   * « chlore choc » du commerce vont de 55 % à 70 % d'hypochlorite.
+   * strengthLabel décrit ce qu'il faut lire sur l'étiquette.
+   */
   var PRODUCTS = [
     { id: 'chlore_choc',    label: 'Chlore choc (granulés)',   role: 'cl',  unit: 'g',  dose: 1.5,  effect: 1,   modes: ['chlore', 'sel', 'oxygene'],
+      refStrength: 65, strengthLabel: '% de chlore actif (hypochlorite de calcium)',
       note: 'Hypochlorite de calcium ~65 %. Filtration en marche, pH réglé avant.' },
     { id: 'chlore_lent',    label: 'Chlore lent (galets 250 g)', role: 'cl', unit: 'galet', dose: 0.04, effect: 1, modes: ['chlore'],
+      refStrength: 90, strengthLabel: '% de chlore actif (trichlorisocyanurique)',
       note: '≈ 1 galet / 25 m³ / semaine, en skimmer ou diffuseur. Apporte du stabilisant.' },
     { id: 'chlore_liquide', label: 'Chlore liquide (javel piscine)', role: 'cl', unit: 'mL', dose: 10, effect: 1, modes: ['chlore', 'sel'],
+      refStrength: 9.6, strengthLabel: '% de chlore actif (ou °chl ÷ 3,17)',
       note: '≈ 9,6 % de chlore actif. Ne stabilise pas, se dégrade au stockage.' },
     { id: 'brome_pastille', label: 'Brome (pastilles)',        role: 'br',  unit: 'g',  dose: 2,    effect: 1,   modes: ['brome'],
+      refStrength: 96, strengthLabel: '% de brome actif (BCDMH)',
       note: 'En brominateur. Efficace jusqu\'à pH 8.' },
     { id: 'oxygene_actif',  label: 'Oxygène actif',            role: 'oa',  unit: 'g',  dose: 1.5,  effect: 1,   modes: ['oxygene'],
+      refStrength: 100, strengthLabel: '% de matière active',
       note: 'Sans chlore ni odeur, mais rémanence courte : dosage régulier.' },
     { id: 'ph_moins',       label: 'pH moins (poudre)',        role: 'ph-', unit: 'g',  dose: 10,   effect: 0.1, modes: ['*'],
+      refStrength: 95, strengthLabel: '% de bisulfate de sodium',
       note: 'Bisulfate de sodium. Diluer dans un seau, verser devant les refoulements.' },
     { id: 'ph_moins_liq',   label: 'pH moins (liquide)',       role: 'ph-', unit: 'mL', dose: 10,   effect: 0.1, modes: ['*'],
+      refStrength: 37, strengthLabel: '% d\'acide (chlorhydrique ou sulfurique)',
       note: 'Acide. Ne jamais mélanger à un autre produit.' },
     { id: 'ph_plus',        label: 'pH plus (poudre)',         role: 'ph+', unit: 'g',  dose: 10,   effect: 0.1, modes: ['*'],
+      refStrength: 99, strengthLabel: '% de carbonate de sodium',
       note: 'Carbonate de sodium. Monte aussi légèrement le TAC.' },
     { id: 'tac_plus',       label: 'TAC plus (bicarbonate)',   role: 'tac+',unit: 'g',  dose: 17,   effect: 10,  modes: ['*'],
+      refStrength: 100, strengthLabel: '% de bicarbonate de sodium',
       note: 'Corriger le TAC AVANT le pH : un TAC bas fait yoyoter le pH.' },
     { id: 'th_plus',        label: 'TH plus (chlorure de calcium)', role: 'th+', unit: 'g', dose: 15, effect: 10, modes: ['*'],
+      refStrength: 77, strengthLabel: '% de chlorure de calcium',
       note: 'Contre l\'eau agressive qui attaque liner et joints.' },
     { id: 'stabilisant',    label: 'Stabilisant (acide cyanurique)', role: 'cya+', unit: 'g', dose: 10, effect: 10, modes: ['chlore', 'sel'],
+      refStrength: 100, strengthLabel: '% d\'acide cyanurique',
       note: 'Protège le chlore des UV. Ne s\'élimine QUE par vidange partielle.' },
     { id: 'sel_piscine',    label: 'Sel piscine (sac)',        role: 'sel+',unit: 'g',  dose: 1000, effect: 1,   modes: ['sel'],
+      refStrength: 100, strengthLabel: '% de NaCl',
       note: '1 kg/m³ pour monter de 1 g/L. Électrolyseur à l\'arrêt pendant la dissolution.' },
     { id: 'anti_algues',    label: 'Anti-algues',              role: 'algi',unit: 'mL', dose: 5,    effect: 1,   modes: ['*'],
+      refStrength: 10, strengthLabel: '% d\'ammonium quaternaire',
       note: 'Préventif ≈ 5 mL/m³ tous les 15 j ; curatif : double dose + choc.' },
     { id: 'floculant',      label: 'Floculant / clarifiant',   role: 'floc',unit: 'mL', dose: 3,    effect: 1,   modes: ['*'],
       note: 'Filtration en continu 24-48 h puis contre-lavage. Pas avec une cartouche.' },

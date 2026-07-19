@@ -1,4 +1,4 @@
 {
-  "version": "1.1.1",
-  "notes": "Prix du kWh au tarif reel (0,15 EUR)."
+  "version": "1.2.0",
+  "notes": "Concentration reelle par produit (corrige enfin les dosages) et recherche de reference en ligne depuis le code-barres."
 }

@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.1.1';
+  var APP_VERSION = '1.2.0';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -1106,15 +1106,99 @@
       : '';
   }
 
+  /* ================================================================== */
+  /* Recherche d'une référence sur internet                             */
+  /* ================================================================== */
+  /*
+   * Aucune base ouverte ne couvre sérieusement les produits de piscine
+   * français : Open Products Facts ne renvoie rien sur la catégorie, et
+   * UPCitemdb est un catalogue américain. On interroge quand même les deux
+   * (c'est gratuit, sans compte, et ça dépanne sur les marques distribuées
+   * à l'international), et à défaut on renvoie l'utilisateur vers une
+   * recherche web sur le code-barres : lire l'étiquette reste le moyen le
+   * plus fiable de connaître la concentration réelle.
+   */
+  var LOOKUP_SOURCES = [
+    { name: 'Open Products Facts',
+      url: function (c) { return 'https://world.openproductsfacts.org/api/v2/product/' + c + '.json'; },
+      parse: function (j) {
+        var p = j && j.product;
+        if (!p || j.status === 0) return null;
+        return { name: [p.brands, p.product_name, p.quantity].filter(Boolean).join(' ') };
+      } },
+    { name: 'Open Food Facts',
+      url: function (c) { return 'https://world.openfoodfacts.org/api/v2/product/' + c + '.json'; },
+      parse: function (j) {
+        var p = j && j.product;
+        if (!p || j.status === 0) return null;
+        return { name: [p.brands, p.product_name, p.quantity].filter(Boolean).join(' ') };
+      } },
+    { name: 'UPCitemdb',
+      url: function (c) { return 'https://api.upcitemdb.com/prod/trial/lookup?upc=' + c; },
+      parse: function (j) {
+        var it = j && j.items && j.items[0];
+        if (!it) return null;
+        return { name: [it.brand, it.title].filter(Boolean).join(' ') };
+      } },
+  ];
+
+  function lookupBarcode(code) {
+    var i = 0;
+    function next() {
+      if (i >= LOOKUP_SOURCES.length) return Promise.resolve(null);
+      var src = LOOKUP_SOURCES[i++];
+      return fetch(src.url(code))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var hit = src.parse(j);
+          if (hit && hit.name) { hit.source = src.name; return hit; }
+          return next();
+        })
+        .catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  function webSearchUrl(code, name) {
+    var q = (name ? name + ' ' : '') + code + ' piscine concentration';
+    return 'https://duckduckgo.com/?q=' + encodeURIComponent(q.trim());
+  }
+
   /* Formulaire produit, partagé par l'ajout et l'édition. */
   function editStock(existing, barcode) {
     var s = existing || { id: uid(), name: '', productId: 'chlore_choc', qty: 0, unit: 'g', low: null, barcode: barcode || null };
     var refs = {};
     return modal(existing ? 'Modifier le produit' : 'Nouveau produit', function (body) {
       var f1 = el('label', 'fld', '<span>Nom (tel qu\'écrit sur l\'emballage)</span>');
+      var nameRow = el('span', 'fld-row');
       refs.name = el('input'); refs.name.type = 'text'; refs.name.value = s.name;
       refs.name.placeholder = 'ex. HTH chlore choc 5 kg';
-      f1.appendChild(refs.name); body.appendChild(f1);
+      nameRow.appendChild(refs.name);
+
+      /* Recherche en ligne : utile surtout pour retrouver le nom exact d'un
+         bidon dont on n'a plus l'étiquette lisible. */
+      var btnNet = el('button', 'ghost small-btn', '🌐');
+      btnNet.type = 'button';
+      btnNet.title = 'Chercher cette référence sur internet';
+      btnNet.onclick = function () {
+        var code = s.barcode;
+        var typed = refs.name.value.trim();
+        if (!code && !typed) { toast('Scanne le code-barres ou tape un nom'); return; }
+        if (!code) { window.open(webSearchUrl('', typed), '_blank'); return; }
+        btnNet.textContent = '…'; btnNet.disabled = true;
+        lookupBarcode(code).then(function (hit) {
+          btnNet.textContent = '🌐'; btnNet.disabled = false;
+          if (hit) {
+            refs.name.value = hit.name;
+            toast('Trouvé via ' + hit.source + ' — vérifie la concentration');
+          } else {
+            toast('Introuvable dans les bases ouvertes — recherche web');
+            window.open(webSearchUrl(code, typed), '_blank');
+          }
+        });
+      };
+      nameRow.appendChild(btnNet);
+      f1.appendChild(nameRow); body.appendChild(f1);
 
       var f2 = el('label', 'fld', '<span>Type de produit</span>');
       refs.pid = el('select');
@@ -1138,6 +1222,14 @@
       row.appendChild(refs.qty); row.appendChild(refs.unit);
       f3.appendChild(row); body.appendChild(f3);
 
+      /* Concentration réelle : sans elle, on dose au titre générique du
+         catalogue, qui peut être 20 % à côté du bidon qu'on a en main. */
+      var fc = el('label', 'fld', '<span>Concentration <span id="strLbl" class="muted"></span></span>');
+      refs.strength = el('input'); refs.strength.type = 'number';
+      refs.strength.step = '0.1'; refs.strength.inputMode = 'decimal';
+      refs.strength.value = s.strength != null ? s.strength : '';
+      fc.appendChild(refs.strength); body.appendChild(fc);
+
       var f4 = el('label', 'fld', '<span>Alerte quand il reste moins de</span>');
       refs.low = el('input'); refs.low.type = 'number'; refs.low.step = '1'; refs.low.inputMode = 'decimal';
       refs.low.value = s.low != null ? s.low : '';
@@ -1149,6 +1241,11 @@
         var p = Chem.product(refs.pid.value);
         note.textContent = p && p.note ? p.note : '';
         if (p && !existing) refs.unit.value = p.unit;
+        /* Le libellé et le repère de concentration dépendent du type choisi. */
+        var lbl = body.querySelector('#strLbl');
+        if (lbl) lbl.textContent = p && p.strengthLabel ? '— ' + p.strengthLabel : '';
+        fc.classList.toggle('hidden', !(p && p.refStrength));
+        refs.strength.placeholder = p && p.refStrength ? 'défaut ' + p.refStrength : '';
       }
       refs.pid.onchange = syncNote; syncNote();
       body.appendChild(note);
@@ -1160,6 +1257,8 @@
       s.productId = refs.pid.value;
       s.qty = parseFloat(refs.qty.value) || 0;
       s.unit = refs.unit.value;
+      var str = parseFloat(refs.strength.value);
+      s.strength = isNaN(str) || str <= 0 ? null : str;
       var low = parseFloat(refs.low.value);
       s.low = isNaN(low) ? null : low;
       return s;
@@ -1168,7 +1267,7 @@
       if (!existing) S.stock.push(res);
       if (res.barcode) {
         /* Mémorisation : ce code-barres désignera ce produit la prochaine fois. */
-        S.barcodes[res.barcode] = { name: res.name, productId: res.productId, unit: res.unit, low: res.low };
+        S.barcodes[res.barcode] = { name: res.name, productId: res.productId, unit: res.unit, low: res.low, strength: res.strength };
       }
       save(); renderStock(); renderHome();
       return res;
@@ -1256,7 +1355,8 @@
     }
     if (known) {
       var item = { id: uid(), name: known.name, productId: known.productId,
-                   qty: 0, unit: known.unit || 'g', low: known.low != null ? known.low : null, barcode: code };
+                   qty: 0, unit: known.unit || 'g', low: known.low != null ? known.low : null,
+                   strength: known.strength != null ? known.strength : null, barcode: code };
       S.stock.push(item);
       save();
       toast('Produit reconnu : ' + known.name);
