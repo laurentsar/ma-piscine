@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.1.0';
+  var APP_VERSION = '1.1.1';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
@@ -23,7 +23,7 @@
       haTempEnt: 'input_number.piscine_temperature',
       haPumpEnt: 'switch.prise_piscine_commutateur_2',
       flow: 15, surface: 27.6,
-      pumpW: 1140, kwhPrice: 0.2016,
+      pumpW: 1140, kwhPrice: 0.15,
     },
     tests: [], stock: [], barcodes: {}, treatments: [], calib: {},
     fill: null, dilutionNotice: null,
