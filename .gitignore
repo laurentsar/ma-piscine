@@ -3,3 +3,4 @@ android/
 package-lock.json
 *.log
 .DS_Store
+__pycache__/

@@ -53,6 +53,9 @@ jobs:
       - name: Add camera / notification permissions
         run: python3 ci/patch_manifest.py
 
+      - name: Replace default Capacitor launcher icons
+        run: python3 ci/patch_icons.py
+
       - name: Sync version from www/version.json
         run: python3 ci/set_version.py
 

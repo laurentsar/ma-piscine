@@ -1,4 +1,4 @@
 {
-  "version": "1.4.1",
-  "notes": "Galet de chlore lent sans additif au catalogue : la version compatible avec les balles filtrantes."
+  "version": "1.4.2",
+  "notes": "Icone du lanceur Android corrigee : l APK affichait le logo Capacitor par defaut au lieu de la goutte d eau."
 }
