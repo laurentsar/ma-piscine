@@ -1,4 +1,4 @@
 {
-  "version": "1.4.0",
-  "notes": "Media filtrant en reglage (Aqualoon par defaut) et alerte quand un produit du stock libere du floculant, proscrit sur balles filtrantes, cartouche et diatomees."
+  "version": "1.4.1",
+  "notes": "Galet de chlore lent sans additif au catalogue : la version compatible avec les balles filtrantes."
 }

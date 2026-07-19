@@ -147,6 +147,12 @@
             'Le stabilisant s\'accumule à chaque galet : surveiller le CYA, il ne part qu\'à la vidange. ' +
             'Floculant intégré : à éviter sur filtre à cartouche.' },
 
+    { id: 'bayzid_lent_200', label: 'Bayzid galet chlore lent 200 g (sans additif)', role: 'cl', unit: 'galet',
+      dose: 0.033, effect: 1, modes: ['chlore'], slow: true,
+      note: 'Acide trichlorisocyanurique, min. 90 % de chlore actif, sans floculant ni anti-calcaire. ' +
+            'C\'est la version à utiliser avec des balles filtrantes, une cartouche ou des diatomées. ' +
+            '1 galet / 30 m³ par semaine en skimmer ou diffuseur. Apporte du stabilisant : surveiller le CYA.' },
+
     { id: 'autre',          label: 'Autre produit',            role: 'none',unit: 'g',  dose: 0,    effect: 0,   modes: ['*'],
       note: '' },
   ];
