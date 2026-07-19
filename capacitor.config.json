@@ -1,0 +1,7 @@
+{
+  "appId": "com.laurent.piscine",
+  "appName": "Ma Piscine",
+  "webDir": "www",
+  "android": { "allowMixedContent": true },
+  "plugins": { "CapacitorHttp": { "enabled": true } }
+}

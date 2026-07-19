@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "notes": "Première version — lecture photo des bandelettes, saisie manuelle, dosages selon le stock, scan de codes-barres, alertes proactives et publication vers Home Assistant."
+}

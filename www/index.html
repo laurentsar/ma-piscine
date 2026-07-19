@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#06131f" />
+  <title>Ma Piscine</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="img/icon-192.png" />
+  <link rel="apple-touch-icon" href="img/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <linearGradient id="lgDrop" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7ee8ff"/><stop offset="55%" stop-color="#22b8f0"/><stop offset="100%" stop-color="#0b7fc4"/>
+        </linearGradient>
+        <linearGradient id="lgWave" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#38e8c8"/><stop offset="100%" stop-color="#22b8f0"/>
+        </linearGradient>
+      </defs>
+      <path d="M32 4C32 4 13 25.5 13 38.5 13 49.3 21.5 58 32 58s19-8.7 19-19.5C51 25.5 32 4 32 4z" fill="url(#lgDrop)"/>
+      <path d="M32 4C32 4 13 25.5 13 38.5c0 3 .7 5.9 1.9 8.4C18.6 30.6 26.7 15.6 32 4z" fill="#ffffff" opacity=".22"/>
+      <path d="M14.6 41.5c4-3.2 7.2-3.2 11.2 0s7.2 3.2 11.2 0 7.2-3.2 11.2 0v6.2c-4-3.2-7.2-3.2-11.2 0s-7.2 3.2-11.2 0-7.2-3.2-11.2 0z" fill="url(#lgWave)" opacity=".95"/>
+      <circle cx="24" cy="22" r="4.2" fill="#ffffff" opacity=".45"/>
+    </svg>
+    <div class="brand-txt">
+      <h1>Ma Piscine <span id="verChip" class="ver-chip"></span></h1>
+      <p class="sub" id="subLine">Désinfection, dosage et suivi de l'eau</p>
+    </div>
+  </div>
+  <button id="haDot" class="ha-dot" title="Home Assistant">🏠</button>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="home">🏊 Accueil</button>
+  <button class="tab" data-tab="test">🧪 Test</button>
+  <button class="tab" data-tab="stock">📦 Stock</button>
+  <button class="tab" data-tab="hist">📈 Suivi</button>
+  <button class="tab" data-tab="set">⚙️</button>
+</nav>
+
+<!-- =========================== ACCUEIL =========================== -->
+<section id="tab-home" class="tab-panel active">
+  <div id="waterState" class="water-state"></div>
+  <div id="fillCard"></div>
+  <div id="proactive"></div>
+  <h2>Ce qu'il y a à faire</h2>
+  <div id="actions"></div>
+  <div id="lastTestInfo" class="muted small"></div>
+  <button id="goTest" class="primary wide">🧪 Faire un test maintenant</button>
+</section>
+
+<!-- ============================= TEST ============================= -->
+<section id="tab-test" class="tab-panel">
+  <div class="seg" id="testMode">
+    <button class="seg-btn active" data-m="photo">📷 Photo bandelette</button>
+    <button class="seg-btn" data-m="manual">⌨️ Saisie manuelle</button>
+  </div>
+
+  <!-- Flux photo -->
+  <div id="photoFlow">
+    <div id="photoStart" class="card">
+      <p class="muted small">Photographie la bandelette bien à plat, à l'ombre, sur un fond neutre — la lumière directe fausse les couleurs.</p>
+      <label class="primary wide file-btn">📷 Prendre / choisir une photo
+        <input type="file" id="stripPhoto" accept="image/*" capture="environment" hidden />
+      </label>
+    </div>
+
+    <div id="photoWork" class="hidden">
+      <div class="canvas-wrap">
+        <canvas id="stripCanvas"></canvas>
+        <div id="marks"></div>
+      </div>
+      <p id="tapHint" class="tap-hint"></p>
+      <div class="row-btns">
+        <button id="btnWhite" class="ghost">⚪ Point blanc</button>
+        <button id="btnRetake" class="ghost">↩︎ Autre photo</button>
+        <button id="btnZoomInfo" class="ghost">🔍 Aide</button>
+      </div>
+      <div id="padList"></div>
+    </div>
+  </div>
+
+  <!-- Saisie manuelle / sonde -->
+  <div id="manualFlow" class="hidden">
+    <p class="muted small">Relevé au testeur électronique ou au kit réactif : saisis directement les valeurs. Laisse vide ce que tu n'as pas mesuré.</p>
+    <div id="manualFields"></div>
+  </div>
+
+  <div class="card" id="testExtra">
+    <label class="fld"><span>Température de l'eau (°C)</span>
+      <span class="fld-row">
+        <input type="number" id="tempIn" step="0.5" inputmode="decimal" placeholder="—" />
+        <button id="tempFromHA" class="ghost small-btn hidden">🏠 depuis HA</button>
+      </span>
+    </label>
+    <label class="fld"><span>Note (facultatif)</span>
+      <input type="text" id="noteIn" placeholder="eau trouble, après orage…" />
+    </label>
+  </div>
+
+  <button id="saveTest" class="primary wide">✅ Enregistrer le test</button>
+  <p id="testMsg" class="msg"></p>
+</section>
+
+<!-- ============================= STOCK ============================ -->
+<section id="tab-stock" class="tab-panel">
+  <div class="row-btns">
+    <button id="btnScan" class="primary">📷 Scanner un code-barres</button>
+    <button id="btnAddManual" class="ghost">＋ Ajouter à la main</button>
+  </div>
+
+  <div id="scanner" class="hidden">
+    <div class="scan-wrap">
+      <video id="scanVideo" playsinline muted></video>
+      <div class="scan-frame"></div>
+    </div>
+    <p id="scanMsg" class="muted small">Vise le code-barres du bidon…</p>
+    <div class="row-btns">
+      <button id="scanManual" class="ghost">⌨️ Saisir le code</button>
+      <button id="scanStop" class="ghost">✕ Fermer</button>
+    </div>
+  </div>
+
+  <div id="stockList"></div>
+  <p class="muted small" id="stockHint"></p>
+</section>
+
+<!-- ============================= SUIVI ============================ -->
+<section id="tab-hist" class="tab-panel">
+  <div class="seg" id="histMode">
+    <button class="seg-btn active" data-h="tests">Tests</button>
+    <button class="seg-btn" data-h="chart">Courbes</button>
+    <button class="seg-btn" data-h="treat">Traitements</button>
+  </div>
+  <div id="histTests"></div>
+  <div id="histChart" class="hidden"></div>
+  <div id="histTreat" class="hidden"></div>
+</section>
+
+<!-- =========================== RÉGLAGES =========================== -->
+<section id="tab-set" class="tab-panel">
+  <h2>Le bassin</h2>
+  <div class="card">
+    <label class="fld"><span>Mode de désinfection</span>
+      <select id="setMode"></select>
+    </label>
+    <label class="fld"><span>Volume (m³)</span>
+      <span class="fld-row">
+        <input type="number" id="setVolume" step="0.5" inputmode="decimal" />
+        <button id="volHelper" class="ghost small-btn">🧮 Calculer</button>
+      </span>
+    </label>
+    <div id="volCalc" class="hidden sub-card">
+      <div class="grid3">
+        <label class="fld"><span>Longueur (m)</span><input type="number" id="vcL" step="0.1" inputmode="decimal" /></label>
+        <label class="fld"><span>Largeur (m)</span><input type="number" id="vcW" step="0.1" inputmode="decimal" /></label>
+        <label class="fld"><span>Prof. moy. (m)</span><input type="number" id="vcD" step="0.1" inputmode="decimal" /></label>
+      </div>
+      <label class="fld"><span>Forme</span>
+        <select id="vcShape">
+          <option value="rect">Rectangulaire</option>
+          <option value="oval">Ovale / haricot</option>
+          <option value="round">Ronde (Longueur = diamètre)</option>
+        </select>
+      </label>
+      <button id="vcApply" class="ghost">Appliquer</button>
+    </div>
+    <label class="fld"><span>Fréquence des tests</span>
+      <select id="setFreq">
+        <option value="2">Tous les 2 jours</option>
+        <option value="3">Tous les 3 jours</option>
+        <option value="7">Une fois par semaine</option>
+        <option value="auto">Automatique (selon la température)</option>
+      </select>
+    </label>
+  </div>
+
+  <h2>Proactivité</h2>
+  <div class="card">
+    <label class="chk"><input type="checkbox" id="setNotif" /> <span>Rappels et alertes sur le téléphone</span></label>
+    <label class="chk"><input type="checkbox" id="setWeather" /> <span>Tenir compte de la météo (canicule, orage)</span></label>
+    <label class="fld"><span>Heure du rappel</span><input type="time" id="setNotifHour" value="09:00" /></label>
+    <p class="muted small">La météo utilise Open-Meteo (service public gratuit, sans compte). Seules des coordonnées arrondies sont envoyées.</p>
+    <div class="row-btns">
+      <button id="btnGeo" class="ghost">📍 Utiliser ma position</button>
+      <button id="btnTestNotif" class="ghost">🔔 Tester une notification</button>
+    </div>
+    <p id="geoMsg" class="muted small"></p>
+  </div>
+
+  <h2>Home Assistant</h2>
+  <div class="card">
+    <p class="muted small">Publie pH, chlore, TAC, équilibre de l'eau, actions à faire et niveaux de stock comme capteurs <code>sensor.piscine_*</code>.</p>
+    <label class="fld"><span>URL</span><input type="text" id="haUrl" placeholder="http://192.168.1.172:8123" /></label>
+    <label class="fld"><span>Jeton longue durée</span><input type="password" id="haToken" placeholder="eyJhbGciOi…" /></label>
+    <label class="chk"><input type="checkbox" id="haAuto" /> <span>Publier automatiquement après chaque test</span></label>
+    <label class="fld"><span>Température de l'eau depuis HA</span><select id="haTempEnt"><option value="">— aucune —</option></select></label>
+    <label class="fld"><span>Entité filtration</span><select id="haPumpEnt"><option value="">— aucune —</option></select></label>
+    <div class="row-btns">
+      <button id="haTest" class="ghost">🔌 Tester la connexion</button>
+      <button id="haPush" class="ghost">⬆︎ Publier maintenant</button>
+    </div>
+    <p id="haMsg" class="msg"></p>
+    <details class="help">
+      <summary>Si la connexion échoue depuis le navigateur</summary>
+      <p class="small">L'APK passe par le réseau natif et n'est pas concerné. En PWA, autorise l'origine dans <code>configuration.yaml</code> :</p>
+      <pre>http:
+  cors_allowed_origins:
+    - http://localhost
+    - capacitor://localhost</pre>
+      <p class="small">Et si ton <code>recorder</code> est en liste blanche, ajoute <code>sensor.piscine_*</code> à <code>recorder.include</code> pour garder l'historique.</p>
+    </details>
+  </div>
+
+  <h2>Calibration des bandelettes</h2>
+  <div class="card">
+    <p class="muted small">Les couleurs varient d'une marque à l'autre. Photographie le nuancier de ton tube et pointe les niveaux : la lecture devient nettement plus juste.</p>
+    <div id="calibList"></div>
+    <p id="calibMsg" class="msg"></p>
+  </div>
+
+  <h2>Données</h2>
+  <div class="card">
+    <div class="row-btns">
+      <button id="btnExport" class="ghost">⬇︎ Exporter</button>
+      <label class="ghost file-btn">⬆︎ Importer<input type="file" id="fileImport" accept="application/json" hidden /></label>
+      <button id="btnWipe" class="ghost danger">🗑 Tout effacer</button>
+    </div>
+    <p class="muted small">Tout est stocké sur le téléphone. Aucune donnée n'est envoyée ailleurs que vers ton Home Assistant, si tu l'as configuré.</p>
+  </div>
+
+  <h2>À propos</h2>
+  <div class="card">
+    <p class="small">Les dosages sont des ordres de grandeur pour piscine privée, calculés d'après le volume et la concentration usuelle des produits. <strong>Vérifie toujours l'étiquette</strong> : les concentrations varient, et un produit surdosé ne se retire pas.</p>
+    <p class="small muted">Ne jamais mélanger deux produits entre eux, ni verser de l'eau dans un acide. Attendre le temps indiqué avant la baignade.</p>
+    <p class="small muted" id="aboutVer"></p>
+  </div>
+</section>
+
+<!-- Fenêtre modale générique -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+    <div class="row-btns end">
+      <button id="modalCancel" class="ghost">Annuler</button>
+      <button id="modalOk" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>window.UPDATE_REPO = 'laurentsar/ma-piscine';</script>
+<script src="js/chem.js"></script>
+<script src="js/strip.js"></script>
+<script src="js/ha.js"></script>
+<script src="app.js"></script>
+<script src="update-check.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js'); });
+  }
+</script>
+</body>
+</html>

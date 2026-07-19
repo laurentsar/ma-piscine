@@ -1,0 +1,103 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install JS deps
+        run: npm install --no-audit --no-fund
+
+      - name: Generate stable signing keystore (first build only)
+        run: |
+          if [ ! -f ci/piscine.p12 ]; then
+            keytool -genkeypair -v -keystore ci/piscine.p12 -storetype PKCS12 \
+              -alias piscine -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass piscine -keypass piscine \
+              -dname "CN=Ma Piscine, O=Laurent, C=FR"
+            echo "NEW_KS=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Regenerate Android platform (fresh each build)
+        run: |
+          rm -rf android
+          npx cap add android
+          cp ci/piscine.p12 android/app/piscine.p12
+
+      - name: Configure release signing
+        run: python3 ci/patch_signing.py
+
+      - name: Add camera / notification permissions
+        run: python3 ci/patch_manifest.py
+
+      - name: Sync version from www/version.json
+        run: python3 ci/set_version.py
+
+      - name: Sync Capacitor (Android)
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build release APK (signed)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'versionName\s+"\K[^"]+' android/app/build.gradle)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK with version
+        run: cp android/app/build/outputs/apk/release/app-release.apk "ma-piscine-${{ steps.version.outputs.version }}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ma-piscine-release-apk
+          path: ma-piscine-${{ steps.version.outputs.version }}.apk
+          if-no-files-found: error
+
+      - name: Create / update GitHub Release
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Ma Piscine v${{ steps.version.outputs.version }}"
+          files: ma-piscine-${{ steps.version.outputs.version }}.apk
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Persist stable keystore
+        if: env.NEW_KS == '1'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -f ci/piscine.p12
+          git commit -m "ci: persist stable signing keystore [skip ci]" || true
+          git push || true
