@@ -1,6 +1,6 @@
 /* Ma Piscine — service worker. Cache l'app shell : elle doit fonctionner au
    bord du bassin, sans réseau. Météo, Home Assistant et GitHub : réseau seul. */
-const CACHE = 'ma-piscine-v1.5.0';
+const CACHE = 'piscine-app-v1.5.0';
 const SHELL = [
   'index.html', 'styles.css', 'app.js', 'update-check.js',
   'js/chem.js', 'js/strip.js', 'js/ha.js',

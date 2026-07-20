@@ -4,3 +4,7 @@ package-lock.json
 *.log
 .DS_Store
 __pycache__/
+
+# signing keystores never live in the repo
+*.p12
+*.jks

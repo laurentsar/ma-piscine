@@ -31,21 +31,11 @@ jobs:
       - name: Install JS deps
         run: npm install --no-audit --no-fund
 
-      - name: Generate stable signing keystore (first build only)
-        run: |
-          if [ ! -f ci/piscine.p12 ]; then
-            keytool -genkeypair -v -keystore ci/piscine.p12 -storetype PKCS12 \
-              -alias piscine -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass piscine -keypass piscine \
-              -dname "CN=Ma Piscine, O=Laurent, C=FR"
-            echo "NEW_KS=1" >> "$GITHUB_ENV"
-          fi
 
       - name: Regenerate Android platform (fresh each build)
         run: |
           rm -rf android
           npx cap add android
-          cp ci/piscine.p12 android/app/piscine.p12
 
       - name: Configure release signing
         run: python3 ci/patch_signing.py
@@ -65,8 +55,20 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::secret ANDROID_KEYSTORE_B64 absent"; exit 1
+          fi
+          mkdir -p android/app
+          printf '%s' "$KEYSTORE_B64" | base64 -d > android/app/signing.p12
+
       - name: Build release APK (signed)
         working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Read app version
@@ -96,11 +98,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Persist stable keystore
-        if: env.NEW_KS == '1'
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add -f ci/piscine.p12
-          git commit -m "ci: persist stable signing keystore [skip ci]" || true
-          git push || true
