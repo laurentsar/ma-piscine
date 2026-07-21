@@ -1,4 +1,4 @@
 {
-  "version": "1.5.0",
-  "notes": "Sauvegarde automatique vers Home Assistant et restauration proposee apres une reinstallation. Bouton Mes produits habituels pour remonter le stock en un geste."
+  "version": "1.5.1",
+  "notes": "Correctif : la sauvegarde vers Home Assistant echouait avec « Cleartext HTTP traffic not permitted » — l'autorisation HTTP local manquait dans l'APK."
 }
