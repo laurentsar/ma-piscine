@@ -1,6 +1,6 @@
 {
   "name": "piscine-app",
-  "version": "1.5.2",
+  "version": "1.5.4",
   "private": true,
   "description": "Désinfection de piscine : lecture photo des bandelettes, stock produits par code-barres, recommandations de dosage et rappels proactifs",
   "scripts": { "sync": "cap sync android", "open": "cap open android" },

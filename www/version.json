@@ -1,4 +1,4 @@
 {
-  "version": "1.5.2",
-  "notes": "Correctif : autorisation du HTTP local (sauvegarde vers Home Assistant) et numero de version affiche aligne sur la version reelle."
+  "version": "1.5.4",
+  "notes": "Echelle de lecture des bandelettes affinee avec des photos nettes et bien eclairees du nuancier complet (chlore jusqu'a 10, TAC jusqu'a 240, pH jusqu'a 9.0)."
 }
