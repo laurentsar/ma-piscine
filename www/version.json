@@ -1,4 +1,4 @@
 {
-  "version": "1.5.3",
-  "notes": "Echelle de lecture des bandelettes (chlore, pH, TAC, TH, stabilisant) recalee sur le nuancier reel d'un tube de bandelettes 6-en-1."
+  "version": "1.5.4",
+  "notes": "Echelle de lecture des bandelettes affinee avec des photos nettes et bien eclairees du nuancier complet (chlore jusqu'a 10, TAC jusqu'a 240, pH jusqu'a 9.0)."
 }
