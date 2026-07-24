@@ -1,4 +1,4 @@
 {
-  "version": "1.5.2",
-  "notes": "Correctif : autorisation du HTTP local (sauvegarde vers Home Assistant) et numero de version affiche aligne sur la version reelle."
+  "version": "1.5.3",
+  "notes": "Echelle de lecture des bandelettes (chlore, pH, TAC, TH, stabilisant) recalee sur le nuancier reel d'un tube de bandelettes 6-en-1."
 }
