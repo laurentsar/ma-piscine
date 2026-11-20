@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  var APP_VERSION = '1.5.2';
+  var APP_VERSION = '1.5.5';
   window.APP_VERSION = APP_VERSION;
 
   /* ================================================================== */
